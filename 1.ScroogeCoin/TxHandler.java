@@ -38,7 +38,7 @@ public class TxHandler {
             if (!currutxoPool.contains(utxo))
                 return false;
             // 2. verify signature
-            byte[] message = tx.getRawDataToSign(txInput.outputIndex);
+            byte[] message = tx.getRawDataToSign(i);
             if(!Crypto.verifySignature(outputObj.address, message, txInput.signature))
                 return false;
             //3. no UTXO is claimed multiple times
@@ -65,7 +65,26 @@ public class TxHandler {
      * updating the current UTXO pool as appropriate.
      */
     public Transaction[] handleTxs(Transaction[] possibleTxs) {
-        
+        ArrayList<Transaction> accTransactions = new ArrayList<Transaction>();
+        for (Transaction tx : possibleTxs) {
+            if (isValidTx(tx)) {
+                accTransactions.add(tx);
+                ArrayList<Transaction.Input> txInputs = tx.getInputs();
+                ArrayList<Transaction.Output> txOutputs = tx.getOutputs();
+                //remove used inputs
+                for (Transaction.Input txInput : txInputs) {
+                    UTXO spentUTXO = new UTXO(txInput.prevTxHash, txInput.outputIndex);
+                    currutxoPool.removeUTXO(spentUTXO);
+                }
+                //add new outputs
+                for (int i = 0; i < tx.numOutputs(); i++) {
+                    Transaction.Output newOutput = txOutputs.get(i);
+                    UTXO newUTXO = new UTXO(tx.getHash(),i);
+                    currutxoPool.addUTXO(newUTXO, newOutput);
+                }
+            }
+        }
+        return accTransactions.toArray(new Transaction[accTransactions.size()]);
     }
 
 }
